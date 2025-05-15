@@ -1,14 +1,27 @@
 <?php
+
 // Path to the CSV file
 $csvFile = 'data/shoe_sizes.csv';
 
 // Internationalization strings
 $messages = [
     'no_match' => 'No matching shoe size found for EU size: ',
-    'provide_eu_size' => 'Please provide an EU shoe size using the 'eu_size' query parameter.'
+    'provide_eu_size' => 'Please provide an EU shoe size using the "eu_size" query parameter.',
+    'invalid_input' => 'Invalid input. Please provide a numeric EU shoe size.',
+    'file_error' => 'Error: CSV file is not accessible or readable.'
 ];
 
-// Function to read CSV file and return data as an associative array
+// Check if the CSV file exists and is readable
+if (!file_exists($csvFile) || !is_readable($csvFile)) {
+    die($messages['file_error']);
+}
+
+/**
+ * Read CSV file and return data as an associative array
+ *
+ * @param string $filename
+ * @return array
+ */
 function readCsv($filename) {
     $rows = [];
     if (($handle = fopen($filename, 'r')) !== FALSE) {
@@ -21,7 +34,13 @@ function readCsv($filename) {
     return $rows;
 }
 
-// Function to find shoe size conversions
+/**
+ * Find shoe size conversions based on EU size
+ *
+ * @param float|string $euSize
+ * @param array $sizes
+ * @return array|null
+ */
 function findShoeSize($euSize, $sizes) {
     foreach ($sizes as $size) {
         if ($size['EU'] == $euSize) {
@@ -31,31 +50,38 @@ function findShoeSize($euSize, $sizes) {
     return null;
 }
 
-// Function to convert cm to inches
+/**
+ * Convert centimeters to inches
+ *
+ * @param float $cm
+ * @return float
+ */
 function cmToInch($cm) {
     return $cm / 2.54;
 }
 
-// Read the shoe sizes from the CSV file
+// Retrieve and validate the EU shoe size from query parameter
+$euSize = filter_input(INPUT_GET, 'eu_size', FILTER_VALIDATE_FLOAT);
+
+if ($euSize === false || $euSize === null) {
+    echo $messages['invalid_input'];
+    exit;
+}
+
+// Read shoe sizes data from CSV file
 $shoeSizes = readCsv($csvFile);
 
-// Get the EU shoe size from the query parameter
-$euSize = isset($_GET['eu_size']) ? $_GET['eu_size'] : null;
+// Find the corresponding shoe sizes
+$result = findShoeSize($euSize, $shoeSizes);
 
-if ($euSize !== null) {
-    // Find the corresponding shoe sizes
-    $result = findShoeSize($euSize, $shoeSizes);
-    
-    if ($result) {
-        echo "EU Size: " . $result['EU'] . "<br>";
-        echo "US Size: " . $result['US'] . "<br>";
-        echo "UK Size: " . $result['UK'] . "<br>";
-        echo "Size in CM: " . $result['CM'] . "<br>";
-        echo "Size in Inches: " . cmToInch($result['CM']) . "<br>";
-    } else {
-        echo $messages['no_match'] . $euSize;
-    }
+if ($result) {
+    // Output formatted shoe sizes
+    echo "EU Size: " . htmlspecialchars($result['EU']) . "<br>";
+    echo "US Size: " . htmlspecialchars($result['US']) . "<br>";
+    echo "UK Size: " . htmlspecialchars($result['UK']) . "<br>";
+    echo "Size in CM: " . htmlspecialchars($result['CM']) . " cm<br>";
+    echo "Size in Inches: " . number_format(cmToInch($result['CM']), 2) . " in<br>";
 } else {
-    echo $messages['provide_eu_size'];
+    echo $messages['no_match'] . htmlspecialchars($euSize);
 }
 ?>
